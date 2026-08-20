@@ -14,7 +14,7 @@ Early days! I'm filling it out as a part of a larger project.
   <li><b>TinyRaycast</b>: raycast to primitive shapes without involving the physics engine</li>
   <li><b>BasicMaterials</b>: loader + getter for basic materials that are in every project</li>
   <li><b>ComponentCreation</b>: macros to reduce component creation boilerplate</li>
-  <li><b>FThreadTeam/FThreadJobber + FJobStack</b>: a convenient and powerful implementation for high performance multithreaded work.</li>
+  <li><b>FThreadTeam/FThreadJobber + FJobStack</b>: a convenient and powerful job system + worker implementation for high performance multithreaded work.</li>
   <li><b>DebugDrawExt</b>: more debug draw functions</li>
   <li><b>GenerateAssetPaths</b>: a pre-build executable that creates a constant referring to every asset in your project.</li>
 </ul>
