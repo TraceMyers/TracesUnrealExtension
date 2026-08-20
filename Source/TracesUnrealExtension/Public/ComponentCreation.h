@@ -63,7 +63,7 @@ inline FName ChooseComponentName(FName FieldName, FName OverrideName)
 	PropName->SetVisibility(CreateComponent_Params.bVisible);																\
 	PropName->bReceivesDecals = CreateComponent_Params.bReceivesDecals;														\
 	PropName->SetSimulatePhysics(CreateComponent_Params.bSimulatePhysics);													\
-	PropName->SetMobility(CreateComponent_Params.ComponentMobility);														\
+	PropName->SetMobility(CreateComponent_Params.ComponentMobility);	
 
 #define CREATE_PRIMITIVE_COMPONENT(PropName, ...)																			\
 	do {																													\
@@ -82,7 +82,7 @@ inline FName ChooseComponentName(FName FieldName, FName OverrideName)
 	const FName CreateComponent_Name = ChooseComponentName(FName(TEXT(#PropName)), CreateComponent_Params.ComponentName);	\
 	PropName = CreateDefaultSubobject<std::remove_reference_t<decltype(*PropName)>>(CreateComponent_Name);					\
 	PropName->SetVisibility(CreateComponent_Params.bVisible);																\
-	PropName->SetMobility(CreateComponent_Params.ComponentMobility);														\
+	PropName->SetMobility(CreateComponent_Params.ComponentMobility);	
 
 #define CREATE_SCENE_COMPONENT(PropName, ...)																				\
 	do {																													\

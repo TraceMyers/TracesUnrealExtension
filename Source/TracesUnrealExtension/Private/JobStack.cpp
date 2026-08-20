@@ -110,18 +110,18 @@ void FJobStackInterface::InitJob(FStackedJob& Stacked, TArrayView<int64> Depende
 		const int64 MinValidID = NextJobs[0].ID;
 		const int64 MaxValidID = NextJobs[NextJobs.Num()-2].ID;
 		
+		// if dependency ID is invalid in shipping, we crash.
+		// why? here are the only 3 good options as I see it:
+		// 1. crash. pro: easy to debug, con: dependably ruins user experience.
+		// 2. remove invalid IDs. pro: might work, con: may add pernicious bugs only to shipping build. hard to debug.
+		// 3. ignore invalid IDs. pro: might work + easy to debug with machine access, con: potential deadlocks. hard to debug without access to machine.
+		// I like easy to debug.
 #if UE_BUILD_DEBUG | UE_BUILD_DEVELOPMENT
 		for (int64 ID : DependencyIDs)
 		{
 			checkf(ID >= MinValidID && ID <= MaxValidID, L"%hs: invalid dependency ID %lld (min valid: %lld, max valid: %lld) while adding job of type %s", __FUNCTION__, ID, MinValidID, MaxValidID, *Stacked.Job->GetName().ToString())
 		}
 #else
-		// if dependency ID is invalid, we crash.
-		// why? here are the only 3 good options as I see it:
-		// 1. crash. pro: easy to debug, con: dependably ruins user experience.
-		// 2. remove invalid IDs. pro: might work, con: may add pernicious bugs only to shipping build. hard to debug.
-		// 3. ignore invalid IDs. pro: might work + easy to debug with machine access, con: potential deadlocks. hard to debug without access to machine.
-		// I like easy to debug.
 		for (int64 ID : DependencyIDs)
 		{
 			if (ID < MinValidID || ID > MaxValidID)
