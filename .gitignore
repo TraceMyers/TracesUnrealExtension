@@ -1,0 +1,36 @@
+# Unreal build products and local runtime state
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+
+# Generated source and asset-reference output
+Generated/
+
+# Locally built helper-tool artifacts
+GenerateAssetPaths/.build/
+GenerateAssetPaths/*.exe
+GenerateAssetPaths/*.pdb
+GenerateAssetPaths/*.ilk
+
+# IDE and editor state
+.vs/
+.idea/
+.vscode/
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.code-workspace
+
+# Platform and temporary files
+.DS_Store
+Thumbs.db
+*.tmp
+*.user
+*.log

@@ -1,0 +1,22 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "Trace's Unreal Extension",
+  "PreBuildSteps": {
+      "Win64": ["\"$(PluginDir)\\GenerateAssetPaths\\generate_asset_paths.exe\""]
+  },
+  "Description": "An extension filling small miscellaneous gaps, useful across many projects.",
+  "Category": "Misc",
+  "CreatedBy": "Trace Myers",
+  "CanContainContent": true,
+  "EnabledByDefault": true,
+  "Plugins": [],
+  "Modules": [
+    {
+      "Name": "TracesUnrealExtension",
+      "Type": "Runtime",
+      "LoadingPhase": "PreDefault"
+    }
+  ]
+}
