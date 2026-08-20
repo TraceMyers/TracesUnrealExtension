@@ -1,3 +1,4 @@
+using System.IO;
 using UnrealBuildTool;
 
 public class TracesUnrealExtension : ModuleRules
@@ -6,7 +7,14 @@ public class TracesUnrealExtension : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 			
-		// editor
+		// adds generated file directory (in intermediates) to includes.
+		string GeneratedDir = Path.Combine(
+			PluginDirectory,
+			"Intermediate",
+			"Generated"
+		);
+		Directory.CreateDirectory(GeneratedDir);
+		PublicIncludePaths.Add(GeneratedDir);
 		
 		PublicDependencyModuleNames.AddRange(new string[]
 		{

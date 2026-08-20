@@ -4,7 +4,9 @@
   "VersionName": "0.1.0",
   "FriendlyName": "Trace's Unreal Extension",
   "PreBuildSteps": {
-      "Win64": ["\"$(PluginDir)\\GenerateAssetPaths\\generate_asset_paths.exe\""]
+    "Win64": [
+      "\"$(PluginDir)\\GenerateAssetPaths\\generate_asset_paths.exe\" -content_root \"$(ProjectDir)\\Content\" -mount_root \"Game\" -output \"$(PluginDir)\\Intermediate\\Generated\\ProjectAssetReferences.h\""
+    ]
   },
   "Description": "An extension filling small miscellaneous gaps, useful across many projects.",
   "Category": "Misc",
