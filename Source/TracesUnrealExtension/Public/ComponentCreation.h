@@ -12,6 +12,7 @@ struct FCreateComponentParams
 	bool bVisible         = false;
 	bool bReceivesDecals  = false;
 	bool bSimulatePhysics = false;
+	USceneComponent* AttachTo = nullptr;
 	ECollisionEnabled::Type CollisionEnabled = ECollisionEnabled::NoCollision;
 	EComponentMobility::Type ComponentMobility = EComponentMobility::Movable;
 };
@@ -41,8 +42,8 @@ struct FCreateComponentParams
 #define CREATE_PRIMITIVE_COMPONENT(PropName, ...) \
 	do {                                                                                                    \
 		PropName = CreateDefaultSubobject<std::remove_reference_t<decltype(*PropName)>>(TEXT(#PropName));   \
-		PropName->SetupAttachment(GetRootComponent());													    \
 		const FCreateComponentParams Params = {__VA_ARGS__};												\
+		PropName->SetupAttachment(Params.AttachTo ? Params.AttachTo : GetRootComponent());					\
 		if (*Params.CollisionProfile != L'\0') {															\
 			PropName->SetCollisionProfileName(Params.CollisionProfile);										\
 		}																									\
@@ -54,11 +55,20 @@ struct FCreateComponentParams
 		PropName->SetMobility(Params.ComponentMobility);													\
 } while (0);
 
+#define CREATE_SCENE_COMPONENT_AS_ROOT(PropName, ...) \
+    do { \
+        PropName = CreateDefaultSubobject<std::remove_reference_t<decltype(*PropName)>>(TEXT(#PropName)); \
+        SetRootComponent(PropName); \
+        const FCreateComponentParams Params = {__VA_ARGS__}; \
+        PropName->SetVisibility(Params.bVisible); \
+        PropName->SetMobility(Params.ComponentMobility); \
+    } while (0);
+
 #define CREATE_SCENE_COMPONENT(PropName, ...)																\
 	do {                                                                                                    \
 		PropName = CreateDefaultSubobject<std::remove_reference_t<decltype(*PropName)>>(TEXT(#PropName));   \
-		PropName->SetupAttachment(GetRootComponent());													    \
 		const FCreateComponentParams Params = {__VA_ARGS__};												\
+		PropName->SetupAttachment(Params.AttachTo ? Params.AttachTo : GetRootComponent());					\
 		PropName->SetVisibility(Params.bVisible);															\
 	} while (0);
 
