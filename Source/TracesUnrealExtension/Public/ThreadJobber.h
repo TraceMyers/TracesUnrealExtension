@@ -80,7 +80,7 @@ public:
 protected:
 	
 	FRunnableThread* Thread = nullptr;
-	FThreadSafeBool bRun = true;
+	std::atomic<bool> bRun = true;
 	uint32 ID = 0;
 	
 	TSharedPtr<FJobStack> JobStack = nullptr;

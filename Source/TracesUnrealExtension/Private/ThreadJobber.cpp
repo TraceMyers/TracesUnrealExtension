@@ -95,7 +95,7 @@ FThreadJobber::~FThreadJobber()
 		check(IsInGameThread())
 	}
 	
-	bRun = false;
+	bRun.store(false, std::memory_order_release);
 	WakeEvent.Event->Trigger();
 	Thread->WaitForCompletion();
 	
@@ -174,7 +174,7 @@ bool FThreadJobber::Init()
 
 uint32 FThreadJobber::Run()
 {
-	while (bRun)
+	while (bRun.load(std::memory_order_acquire))
 	{
 		FJobStack* Stack = JobStack.Get();
 		auto Result = Stack->ExcecuteJob(&WakeEvent);
@@ -195,6 +195,6 @@ uint32 FThreadJobber::Run()
 
 void FThreadJobber::Stop()
 {
-	bRun = false;
+	bRun.store(false, std::memory_order_release);
 	WakeEvent.Event->Trigger();
 }
