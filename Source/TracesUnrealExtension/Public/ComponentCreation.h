@@ -26,40 +26,51 @@ struct FCreateComponentParams
 // The size/functionality hierarchy from most to least is primitive component, scene component, actor component
 // I think the names are bad, but it's important to know so that you pick the right initialization macro.
 
+// ..._NO_ATTACHMENT() macros are the implementations for the other versions. If you use them on their own,
+// you should wrap them in a scope, like { CREATE_PRIMITIVE_COMPONENT_NO_ATTACHMENT(propname, args) }
+// so that the 'Params' stack variable doesn't collide with other macro expansions.
+
+#define CREATE_PRIMITIVE_COMPONENT_NO_ATTACHMENT(PropName, ...)											\
+	PropName = CreateDefaultSubobject<std::remove_reference_t<decltype(*PropName)>>(TEXT(#PropName));   \
+	const FCreateComponentParams Params = {__VA_ARGS__};												\
+	if (*Params.CollisionProfile != L'\0') {															\
+		PropName->SetCollisionProfileName(Params.CollisionProfile);										\
+	}																									\
+	PropName->CastShadow = Params.bCastShadow;															\
+	PropName->SetVisibility(Params.bVisible);															\
+	PropName->bReceivesDecals = Params.bReceivesDecals;													\
+	PropName->SetSimulatePhysics(Params.bSimulatePhysics);												\
+	PropName->SetCollisionEnabled(Params.CollisionEnabled);												\
+	PropName->SetMobility(Params.ComponentMobility);													\
+
 #define CREATE_PRIMITIVE_COMPONENT(PropName, ...) \
 	do {                                                                                                    \
-		PropName = CreateDefaultSubobject<std::remove_reference_t<decltype(*PropName)>>(TEXT(#PropName));   \
-		const FCreateComponentParams Params = {__VA_ARGS__};												\
+		CREATE_PRIMITIVE_COMPONENT_NO_ATTACHMENT(PropName, __VA_ARGS__)										\
 		PropName->SetupAttachment(Params.AttachTo ? Params.AttachTo : GetRootComponent());					\
-		if (*Params.CollisionProfile != L'\0') {															\
-			PropName->SetCollisionProfileName(Params.CollisionProfile);										\
-		}																									\
-		PropName->CastShadow = Params.bCastShadow;															\
-		PropName->SetVisibility(Params.bVisible);															\
-		PropName->bReceivesDecals = Params.bReceivesDecals;													\
-		PropName->SetSimulatePhysics(Params.bSimulatePhysics);												\
-		PropName->SetCollisionEnabled(Params.CollisionEnabled);												\
-		PropName->SetMobility(Params.ComponentMobility);													\
-} while (0);
-
-#define CREATE_PRIMITIVE_COMPONENT_AS_ROOT(PropName, ...)	\
-	do {													\
-		CREATE_PRIMITIVE_COMPONENT(PropName, __VA_ARGS__)	\
-		SetRootComponent(PropName);							\
 	} while (0);
 
-#define CREATE_SCENE_COMPONENT(PropName, ...)																\
-	do {                                                                                                    \
-		PropName = CreateDefaultSubobject<std::remove_reference_t<decltype(*PropName)>>(TEXT(#PropName));   \
-		const FCreateComponentParams Params = {__VA_ARGS__};												\
-		PropName->SetupAttachment(Params.AttachTo ? Params.AttachTo : GetRootComponent());					\
-		PropName->SetVisibility(Params.bVisible);															\
+#define CREATE_PRIMITIVE_COMPONENT_AS_ROOT(PropName, ...)				\
+	do {																\
+		CREATE_PRIMITIVE_COMPONENT_NO_ATTACHMENT(PropName, __VA_ARGS__)	\
+		SetRootComponent(PropName);										\
 	} while (0);
 
-#define CREATE_SCENE_COMPONENT_AS_ROOT(PropName, ...)	\
-    do {												\
-		CREATE_SCENE_COMPONENT(PropName, __VA_ARGS__)	\
-        SetRootComponent(PropName);						\
+#define CREATE_SCENE_COMPONENT_NO_ATTACHMENT(PropName, ...)												\
+	PropName = CreateDefaultSubobject<std::remove_reference_t<decltype(*PropName)>>(TEXT(#PropName));   \
+	const FCreateComponentParams Params = {__VA_ARGS__};												\
+	PropName->SetVisibility(Params.bVisible);															\
+	PropName->SetMobility(Params.ComponentMobility);													\
+
+#define CREATE_SCENE_COMPONENT(PropName, ...)												\
+	do {																					\
+		CREATE_SCENE_COMPONENT_NO_ATTACHMENT(PropName, __VA_ARGS__)							\
+		PropName->SetupAttachment(Params.AttachTo ? Params.AttachTo : GetRootComponent());	\
+	} while (0);
+
+#define CREATE_SCENE_COMPONENT_AS_ROOT(PropName, ...)				\
+    do {															\
+		CREATE_SCENE_COMPONENT_NO_ATTACHMENT(PropName, __VA_ARGS__)	\
+        SetRootComponent(PropName);									\
     } while (0);
 
 #define CREATE_ACTOR_COMPONENT(PropName)																	\
