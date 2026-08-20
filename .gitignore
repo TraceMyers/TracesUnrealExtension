@@ -9,8 +9,6 @@ Generated/
 
 # Locally built helper-tool artifacts
 GenerateAssetPaths/.build/
-GenerateAssetPaths/*.exe
-GenerateAssetPaths/*.pdb
 GenerateAssetPaths/*.ilk
 
 # IDE and editor state
