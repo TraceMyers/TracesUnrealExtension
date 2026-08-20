@@ -1,5 +1,9 @@
 #pragma once
 
+#include "CoreMinimal.h"
+
+#include <type_traits>
+
 namespace MathExt
 {
 	template<typename T>

@@ -1,6 +1,10 @@
 #pragma once
 
 #include "Runtime/Engine/Classes/Engine/EngineTypes.h"
+#include "CoreMinimal.h"
+#include "Components/SceneComponent.h"
+
+#include <type_traits>
 
 // helper macros for creating components in actor constructors.
 // e.g. CREATE_PRIMITIVE_COMPONENT(MyComponentVar, .bVisible=true, .bSimulatePhysics=true);

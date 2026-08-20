@@ -1,4 +1,7 @@
 #include "JobStack.h"
+#include "HAL/Event.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/PlatformTLS.h"
 
 FJobStackInterface::FJobStackInterface()
 {

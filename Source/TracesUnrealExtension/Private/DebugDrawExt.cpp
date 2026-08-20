@@ -2,6 +2,7 @@
 #include "DebugDrawExt.h"
 #include "Runtime/Engine/Classes/Engine/HitResult.h"
 #include "Runtime/Engine/Public/DrawDebugHelpers.h"
+#include "GameFramework/Actor.h"
 
 void DebugDrawExt::HitResult(const UWorld* World, const FHitResult& HitResult, float Time, FColor MissLineColor, FColor HitLineColor, FColor HitCircleColor)
 {

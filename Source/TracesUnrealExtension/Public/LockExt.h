@@ -1,6 +1,11 @@
 #pragma once
 
 #include "MathExt.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Event.h"
+
+#include <atomic>
+#include <type_traits>
 
 #define INVALID_THREAD_ID 0
 

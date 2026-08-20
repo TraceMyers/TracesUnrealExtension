@@ -20,7 +20,9 @@ FORCEINLINE bool RaycastPlane(FTinyRaycastResult& Result, const FVector& RayOrig
 	const double PointingCosT		   = PlaneNormal | RayDirection;
 	Result.HitDistance				   = SignedDistanceToPlane / PointingCosT;
 	Result.HitLocation				   = RayOrigin + RayDirection * Result.HitDistance;
-	Result.bIsHit					   = (Result.HitDistance >= 0) & (PointingCosT != 0);
+	const bool bIsNanOrInf = isinf(Result.HitDistance) || isnan(Result.HitDistance);
+	// always check bIsHit before trusting other results.
+	Result.bIsHit					   = (Result.HitDistance >= 0) && (PointingCosT != 0) && !bIsNanOrInf; 
 	Result.bHitBackFace				   = SignedDistanceToPlane > 0;
 	return Result.bIsHit;
 }

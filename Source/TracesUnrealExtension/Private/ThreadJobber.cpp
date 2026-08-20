@@ -1,4 +1,7 @@
 #include "ThreadJobber.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Event.h"
+#include "HAL/PlatformMisc.h"
 
 FThreadTeam::~FThreadTeam()
 {

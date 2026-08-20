@@ -1,5 +1,8 @@
 #pragma once
+
 #include "JobStack.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
 
 class FThreadJobber;
 struct FThreadJobberInterface;
@@ -24,11 +27,8 @@ struct FThreadTeam
 	TArray<TUniquePtr<FThreadJobber>> Jobbers;
 };
 
-// worker thread object intended for: 
-// - up to 20 workers (limited by lock contention, but recommended # likely limited by cpu cores)
-// - all workers working constantly in parallel across cores.
-// - individual job duration > 60,000 cycles (20us or 0.02ms on a 3ghz core)
-// (todo: test this claim. it's based partly on experience and partly on llm feedback.)
+// worker thread object intended for bulk work with non-crazy lock contention. Please note that this system
+// is untested as of 8/20/26.
 // 
 // part of a coordinated group. any instance can be used as an interface to make the whole group do work.
 // intended usage (using game thread by default):

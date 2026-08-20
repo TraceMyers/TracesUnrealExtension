@@ -1,4 +1,6 @@
 #include "BasicMaterials.h"
+#include "UObject/Class.h"
+#include "UObject/UObjectGlobals.h"
 
 TObjectPtr<UMaterialInterface> GetBasicMaterial(EBasicMaterial T)
 {

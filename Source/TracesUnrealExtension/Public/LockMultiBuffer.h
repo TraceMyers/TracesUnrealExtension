@@ -58,7 +58,7 @@ struct TLockMultiBuffer
         FQScopeLock ScopedLock(&FlipLock);
 		if (bEmptyBeforeFlip)
 		{
-            Buffers[CurrentBuffer].Clear();
+            Buffers[CurrentBuffer].Empty();
 		}
 		CurrentBuffer = MathExt::IncrementWrap(CurrentBuffer, 0, BufferCount-1);
 	}
@@ -69,6 +69,12 @@ protected:
     {
         const size_t BufIndex = (CurrentBuffer + Buffer) % BufferCount;
         return Buffers[BufIndex];
+    }
+	    
+	const TLockBuffer<T>& GetBuffer(size_t Buffer) const
+    {
+    	const size_t BufIndex = (CurrentBuffer + Buffer) % BufferCount;
+    	return Buffers[BufIndex];
     }
     
     // in the case of using this lock, a 'write' is flipping the buffers

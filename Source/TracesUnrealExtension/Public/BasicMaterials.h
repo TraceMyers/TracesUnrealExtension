@@ -1,5 +1,7 @@
 #pragma once
 
+#include "CoreMinimal.h"
+#include "Materials/MaterialInterface.h"
 #include "BasicMaterials.generated.h"
 
 UENUM()
