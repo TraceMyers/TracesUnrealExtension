@@ -110,7 +110,8 @@ namespace
 			const int32 WriterCount = WorkerCount - ReaderCount;
 		
 			std::atomic TestFlags = ETestFlags::Success;
-			TStaticArray<uint64, (4 * 1024)/8, 64> TestData = {0};
+			TStaticArray<UE::Core::TAlignedElement<uint64, 64>, (4 * 1024)/8> TestData;
+			FMemory::Memzero(TestData);
 			double TestStart = 0;
 		
 			{

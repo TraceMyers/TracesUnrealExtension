@@ -32,9 +32,9 @@ namespace MathExt
 		static_assert(std::is_integral_v<T> && sizeof(T) < 8);
 		check(Val >= Min && Val <= Max && Max >= Min);
 		
-		const int64 Sum = Val + AddAmt;
+		const int64 Sum = (int64)Val + (int64)AddAmt;
 		int64 OutValue = Sum;
-		const int64 MinMaxDiff = (Max - Min) + 1;
+		const int64 MinMaxDiff = (int64)Max - (int64)Min + 1;
 		
 		if (Sum > Max)
 		{

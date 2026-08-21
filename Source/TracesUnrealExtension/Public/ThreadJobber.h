@@ -4,14 +4,20 @@
 #include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
 
-class FThreadJobber;
 struct FThreadJobberInterface;
+class FThreadJobber;
 
 // convenience object to wrap an array of FThreadJobber. handles basic spawn and shutdown duty.
 // interfacing with the group threads is done by interacting with any one of them, which is
 // why GetMember() returns the first object in the team's array.
-struct FThreadTeam
+struct TRACESUNREALEXTENSION_API FThreadTeam
 {
+	FThreadTeam() = default;
+	FThreadTeam(const FThreadTeam&) = delete;
+	FThreadTeam& operator=(const FThreadTeam&) = delete;
+	FThreadTeam(FThreadTeam&&) noexcept = default;
+	FThreadTeam& operator=(FThreadTeam&&) noexcept = default;
+	
 	~FThreadTeam();
 	
 	// if ThreadCount == 0, will spawn the recommended number of threads given an expected load on ~3-4 default
@@ -47,7 +53,7 @@ struct FThreadTeam
 // 
 // note: you can go through this loop multiple times per frame with the same team of jobbers, once
 // per frame, or whatever. you can do so unconditionally as well. if no jobs were added, nothing happens.
-class FThreadJobber : public FRunnable
+class TRACESUNREALEXTENSION_API FThreadJobber : public FRunnable
 {
 public:
 	

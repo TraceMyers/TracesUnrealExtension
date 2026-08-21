@@ -36,7 +36,7 @@ struct FWorkerThreadWakeEvent
 	int64 LastKnownEpoch = 0;
 };
 
-class FJobStackInterface
+class TRACESUNREALEXTENSION_API FJobStackInterface
 {
 public:	
 	
@@ -130,7 +130,7 @@ protected:
 	mutable FQLock NextLock;
 };
 
-class FJobStack : public FJobStackInterface
+class TRACESUNREALEXTENSION_API FJobStack : public FJobStackInterface
 {
 public:
 	
