@@ -67,4 +67,28 @@ namespace EnumExt
 	{
 		return FromInt<T>(ToInt(A) & ToInt(B));
 	}
+	
+	template<typename T>
+	FORCEINLINE void AddFlagsAtomic(std::atomic<T>& A, T B)
+	{
+		bool bExchangeSuccess = false;
+		while (!bExchangeSuccess)
+		{
+			T CurFlags = A.load(std::memory_order_acquire);
+			T NewFlags = Or(CurFlags, B);
+			bExchangeSuccess = A.compare_exchange_strong(CurFlags, NewFlags);
+		}
+	}
+	
+	template<typename T>
+	FORCEINLINE void RemoveFlagsAtomic(std::atomic<T>& A, T B)
+	{
+		bool bExchangeSuccess = false;
+		while (!bExchangeSuccess)
+		{
+			T CurFlags = A.load(std::memory_order_acquire);
+			T NewFlags = And(CurFlags, ~B);
+			bExchangeSuccess = A.compare_exchange_strong(CurFlags, NewFlags);
+		}
+	}
 }

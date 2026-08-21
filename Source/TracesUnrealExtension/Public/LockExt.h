@@ -99,9 +99,13 @@ struct FQLock
 		}	
 	}
 	
+	// you must exit all users from the lock before destruction or bad things happen.
+	// to kick out existing members and keep new members from entering makes the lock more
+	// complicated and expensive. better the lock owner handles that part.
 	~FQLock()
 	{
-		// todo: resolve current queue. block usage.
+		// weak check but might catch bad behavior
+		check(Queue.Count == 0)
 		for (FQQueueMember& Member : Queue.Members)
 		{
 			FPlatformProcess::ReturnSynchEventToPool(Member.Event);
@@ -118,6 +122,18 @@ struct FQLock
 		constexpr int32 ABS_WRITE_KEY = WRITE_KEY * (WRITE_KEY > 0 ? 1 : -1);
 		return ABS_WRITE_KEY - 1;
 	}
+
+#if TUE_LOCK_TEST_INSTRUMENTATION
+	uint64 GetSpinFailureCount() const
+	{
+		return SpinFailureCount.load(std::memory_order_relaxed);
+	}
+
+	uint64 GetContendedSpinAcquisitionCount() const
+	{
+		return ContendedSpinAcquisitionCount.load(std::memory_order_relaxed);
+	}
+#endif
 	
 protected:
 	
@@ -149,8 +165,18 @@ protected:
 		{
 			if (TryAcquire(Key, CanAcquire))
 			{
+#if TUE_LOCK_TEST_INSTRUMENTATION
+				if (YieldCount > 0)
+				{
+					ContendedSpinAcquisitionCount.fetch_add(1, std::memory_order_relaxed);
+				}
+#endif
 				return;
 			}
+
+#if TUE_LOCK_TEST_INSTRUMENTATION
+			SpinFailureCount.fetch_add(1, std::memory_order_relaxed);
+#endif
 			
 			if (++YieldCount < 48)
 			{
@@ -264,6 +290,11 @@ protected:
 
 	std::atomic<int32> ReadWriteCounter = 0;
 	FQQueue Queue;
+
+#if TUE_LOCK_TEST_INSTRUMENTATION
+	std::atomic<uint64> SpinFailureCount = 0;
+	std::atomic<uint64> ContendedSpinAcquisitionCount = 0;
+#endif
 };
 
 struct FQWrite
@@ -282,7 +313,7 @@ struct FQWrite
 
 	static FORCEINLINE void Unlock(FQLock* Lock)
 	{
-		const int32 CounterValue = Lock->ReadWriteCounter.fetch_sub(FQLock::WRITE_KEY) - FQLock::WRITE_KEY;
+		const int32 CounterValue = Lock->ReadWriteCounter.fetch_sub(FQLock::WRITE_KEY, std::memory_order_release) - FQLock::WRITE_KEY;
 		if (CounterValue == 0)
 		{
 			Lock->Queue.WakeFront();
@@ -306,7 +337,7 @@ struct FQRead
 
 	static FORCEINLINE void Unlock(FQLock* Lock)
 	{
-		const int32 CounterValue = Lock->ReadWriteCounter.fetch_sub(FQLock::READ_KEY) - FQLock::READ_KEY;
+		const int32 CounterValue = Lock->ReadWriteCounter.fetch_sub(FQLock::READ_KEY, std::memory_order_release) - FQLock::READ_KEY;
 		if (CounterValue == 0)
 		{
 			Lock->Queue.WakeFront();
