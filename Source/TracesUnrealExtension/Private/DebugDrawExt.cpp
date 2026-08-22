@@ -16,7 +16,7 @@ void DebugDrawExt::HitResult(const UWorld* World, const FHitResult& HitResult, f
 			DrawDebugBox(World, HitActorBox.GetCenter(), HitActorBox.GetExtent(), FColor::Magenta, false, Time, 0, 4);
 		}
 		
-		const FVector DifferentEnoughAxis = (HitResult.ImpactNormal | FVector::ZAxisVector) > 0.99 ? FVector::XAxisVector : FVector::ZAxisVector;
+		const FVector DifferentEnoughAxis = FMath::Abs(HitResult.ImpactNormal | FVector::ZAxisVector) > 0.99 ? FVector::XAxisVector : FVector::ZAxisVector;
 		const FVector XAxis = HitResult.ImpactNormal.Cross(DifferentEnoughAxis).GetSafeNormal();
 		const FVector YAxis = HitResult.ImpactNormal.Cross(XAxis).GetSafeNormal();
 		

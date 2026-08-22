@@ -201,7 +201,10 @@ protected:
 		// if you never want this to sleep, just make the queue bigger on construction.
 		while ((QueuePosition = Queue.TryJoin(Mode)) == -1)
 		{
-			FPlatformProcess::SleepNoStats(0.001f);
+			// 1ms is the smallest sleep value before unreal just yields the thread
+			// if we don't sleep in the case when we've planned so poorly that the queue is full, 
+			// bad performance becomes worse. so, 1ms. 
+			FPlatformProcess::SleepNoStats(0.001f); 
 		} 
 		
 		// queue wait->wake loop

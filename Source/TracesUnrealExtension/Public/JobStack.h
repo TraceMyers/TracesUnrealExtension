@@ -103,6 +103,10 @@ protected:
 		
 		FStackedJob& operator=(FStackedJob&& InJob)
 		{
+			if (Job)
+			{
+				delete Job;
+			}
 			Job = InJob.Job;
 			ID = InJob.ID;
 			DependencyIDs = InJob.DependencyIDs;

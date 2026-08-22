@@ -87,7 +87,7 @@ namespace EnumExt
 		while (!bExchangeSuccess)
 		{
 			T CurFlags = A.load(std::memory_order_acquire);
-			T NewFlags = And(CurFlags, FromInt(~ToInt(B)));
+			T NewFlags = And(CurFlags, FromInt<T>(~ToInt(B)));
 			bExchangeSuccess = A.compare_exchange_strong(CurFlags, NewFlags);
 		}
 	}
