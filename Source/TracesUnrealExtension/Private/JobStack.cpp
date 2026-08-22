@@ -67,10 +67,10 @@ void FJobStackInterface::WakeControllerThread() const
 	ControllerThreadWakeEvent->Trigger();
 }
 
-void FJobStackInterface::SleepControllerThread() const
+bool FJobStackInterface::SleepControllerThread(uint32 WaitTimeMilliseconds) const
 {
 	check(ControllerThreadID == FPlatformTLS::GetCurrentThreadId())
-	ControllerThreadWakeEvent->Wait();
+	return ControllerThreadWakeEvent->Wait(WaitTimeMilliseconds);
 }
 
 void FJobStackInterface::EmptyCurrent(bool bPreLocked)

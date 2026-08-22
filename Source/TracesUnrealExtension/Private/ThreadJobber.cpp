@@ -2,6 +2,7 @@
 #include "HAL/PlatformProcess.h"
 #include "HAL/Event.h"
 #include "HAL/PlatformMisc.h"
+#include "HAL/PlatformTime.h"
 
 FThreadTeam::~FThreadTeam()
 {
@@ -29,7 +30,7 @@ void FThreadTeam::Startup(size_t ThreadCount, bool bForceControlOnGameThread, in
 	// then go idle.
 	while (!JobStack->IsIdle())
 	{
-		JobStack->SleepControllerThread();
+		const auto _ = JobStack->SleepControllerThread();
 	}
 	// if this thread reaches the while(!IsIdle()) check after all threads have gone idle,
 	// it never gets a chance to reset its wake signal by sleeping and waking. this
@@ -44,10 +45,10 @@ void FThreadTeam::Shutdown()
 	if (Jobbers.Num() > 0)
 	{
 		Jobbers[0].Get()->GetJobStack()->EmptyThreadWakeEvents();
-	}
-	for (int32 i = 0; i < Jobbers.Num(); i++)
-	{
-		Jobbers[i].Reset();
+		for (int32 i = 0; i < Jobbers.Num(); i++)
+		{
+			Jobbers[i].Reset();
+		}
 	}
 	Jobbers.Empty();
 }
@@ -143,18 +144,24 @@ void FThreadJobber::BeginWork() const
 	Stack->WakeWorkerThreads();
 }
 
-void FThreadJobber::JoinWork() const
+bool FThreadJobber::JoinWork(double TimeoutSeconds) const
 {
 	if (bForceControlOnGameThread)
 	{
 		check(IsInGameThread())
 	}
-	
+
 	FJobStack* Stack = JobStack.Get();
+	const double Deadline = FPlatformTime::Seconds() + TimeoutSeconds;
 	while (!Stack->IsIdle())
 	{
-		Stack->SleepControllerThread();
+		if (FPlatformTime::Seconds() >= Deadline)
+		{
+			return false;
+		}
+		const auto _ = Stack->SleepControllerThread();
 	}
+	return true;
 }
 
 void FThreadJobber::ApplyResults() const

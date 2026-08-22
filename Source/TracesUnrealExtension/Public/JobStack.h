@@ -46,14 +46,13 @@ public:
 		static_assert(TIsDerivedFrom<JobType, FJob>::Value);
 		FQScopeLock Lock(&NextLock);
 		auto& Jobs = JobsDB.GetNext();
-		Jobs.Add({.Job=new JobType(MoveTemp(InJob))});
-		FStackedJob& Stacked = Jobs[Jobs.Num()-1];
+		FStackedJob& Stacked = Jobs.Emplace_GetRef(FStackedJob(new JobType(MoveTemp(InJob))));
 		InitJob(Stacked, DependencyIDs);
 		if (OutID)
 		{
 			*OutID = Stacked.ID;
 		}
-		return *Stacked.Job;
+		return static_cast<JobType&>(*Stacked.Job);
 	}
 	
 	int32 CountWorkingThreads() const;
@@ -82,7 +81,7 @@ public:
 	
 	void WakeControllerThread() const;
 	
-	void SleepControllerThread() const;
+	bool SleepControllerThread(uint32 WaitTimeMilliseconds=10) const;
 	
 	void EmptyCurrent(bool bPreLocked=false);
 	
@@ -92,6 +91,34 @@ protected:
 
 	struct FStackedJob
 	{
+		FStackedJob(const FStackedJob& InJob) = delete;
+		FStackedJob& operator=(const FStackedJob& InJob) = delete;
+		
+		FStackedJob(FJob* InJob) : Job(InJob) {}
+		
+		FStackedJob(FStackedJob&& InJob)  : Job(InJob.Job), ID(InJob.ID), DependencyIDs(InJob.DependencyIDs), Status(InJob.Status.load(std::memory_order_acquire))
+		{
+			Clear(InJob);
+		}
+		
+		FStackedJob& operator=(FStackedJob&& InJob)
+		{
+			Job = InJob.Job;
+			ID = InJob.ID;
+			DependencyIDs = InJob.DependencyIDs;
+			Status = InJob.Status.load(std::memory_order_acquire);
+			Clear(InJob);
+			return *this;
+		}
+		
+		static void Clear(FStackedJob& J)
+		{
+			J.Job = nullptr;
+			J.ID = 0;
+			J.DependencyIDs = {};
+			J.Status = Queued;		
+		}
+		
 		enum EStatus : uint8
 		{
 			Queued,
@@ -104,7 +131,7 @@ protected:
 		FJob* Job = nullptr;
 		int64 ID = 0;
 		FBufferIndexer DependencyIDs = {};
-		TAtomic<EStatus> Status = Queued;
+		std::atomic<EStatus> Status = Queued;
 	};
 	
 	FJobStackInterface();

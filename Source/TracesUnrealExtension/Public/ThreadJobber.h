@@ -71,7 +71,7 @@ public:
 	// whichever thread you created your jobbers from (usually game thread) is known internally
 	// as the controller thread. only that thread can call JoinWork(), which makes said thread
 	// go idle until work is complete.
-	void JoinWork() const;
+	bool JoinWork(double TimeoutSeconds=1) const;
 	// calls ApplyResults() on every job
 	void ApplyResults() const;
 	

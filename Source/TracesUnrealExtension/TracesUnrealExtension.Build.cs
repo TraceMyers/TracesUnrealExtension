@@ -6,7 +6,8 @@ public class TracesUnrealExtension : ModuleRules
 	public TracesUnrealExtension(ReadOnlyTargetRules Target) : base(Target)
 	{
 		// PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-		PCHUsage = PCHUsageMode.NoSharedPCHs;
+		// just for having build correctness without having to maintain a PCH for now.
+		PCHUsage = PCHUsageMode.NoPCHs; 
 		
 		// set this to =1 if you want to run the lock test. =0 otherwise, as 
 		// it adds costly instrumentation to hot paths.

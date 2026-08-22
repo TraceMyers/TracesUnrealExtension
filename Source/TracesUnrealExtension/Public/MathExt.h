@@ -62,16 +62,6 @@ namespace MathExt
 		return {Vec3.X, Vec3.Y};
 	}
 	
-	FORCEINLINE FVector2D& AsVec2(FVector& Vec3)
-	{
-		return *(FVector2D*)&Vec3.X;
-	}
-	
-	FORCEINLINE const FVector2D& AsVec2(const FVector& Vec3)
-	{
-		return *(const FVector2D*)&Vec3.X;
-	}
-	
 	FORCEINLINE FVector Add(const FVector& Vec3, const FVector2D& Vec2)
 	{
 		return {Vec3.X + Vec2.X, Vec3.Y + Vec2.Y, Vec3.Z};
