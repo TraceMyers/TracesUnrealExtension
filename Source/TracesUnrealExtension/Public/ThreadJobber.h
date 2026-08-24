@@ -33,26 +33,23 @@ struct TRACESUNREALEXTENSION_API FThreadTeam
 	TArray<TUniquePtr<FThreadJobber>> Jobbers;
 };
 
-// worker thread object intended for bulk work with non-crazy lock contention. Please note that this system
-// is untested as of 8/20/26.
-// 
 // part of a coordinated group. any instance can be used as an interface to make the whole group do work.
 // intended usage (using game thread by default):
 // 
 // 1. add jobs to stack
-// 2. call PrepareForWork()
-// 3. do any post-preparation.
-// 4. call BeginWork()
-// 5. do whatever on game thread
-// 6. call JoinWork()
-// 7. do any pre-apply results work.
-// 8. call ApplyResults()
+// 2. call BeginWork()
+// 3. do whatever on controller (probably game) thread
+// 4. call JoinWork()
+// 5. call ApplyResults()
 // 
-// note: adding jobs to the stack can be done at any time. the jobs will be added to the next workload,
+// adding jobs to the stack can be done at any time. the jobs will be added to the next workload,
 // as they are double-buffered. PrepareForWork() rotates the buffers.
 // 
-// note: you can go through this loop multiple times per frame with the same team of jobbers, once
+// you can go through this loop multiple times per frame with the same team of jobbers, once
 // per frame, or whatever. you can do so unconditionally as well. if no jobs were added, nothing happens.
+//
+// tested working with the "threads" test in Tests.cpp. On an AMD Ryzen 9, a
+// series  of performance tests showed 0.6-0.8 microseconds of overhead per job (timers have been removed).
 class TRACESUNREALEXTENSION_API FThreadJobber : public FRunnable
 {
 public:
@@ -63,10 +60,7 @@ public:
 	
 	// double-buffered stack by which you add jobs that will be worked on by jobbers
 	TSharedPtr<FJobStackInterface> GetJobStack() { return JobStack; }
-	// rotates job buffers so that all of the jobs since the last PrepareForWork() call (or since construction)
-	// are up next. then, calls Prepare() on every job.
-	void PrepareForWork() const;
-	// wakes worker threads and 
+	// calls Prepare() on every job, then wakes worker threads and gets them working (calling Execute per job).
 	void BeginWork() const;
 	// whichever thread you created your jobbers from (usually game thread) is known internally
 	// as the controller thread. only that thread can call JoinWork(), which makes said thread

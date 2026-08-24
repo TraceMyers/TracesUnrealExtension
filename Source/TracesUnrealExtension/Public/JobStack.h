@@ -3,7 +3,10 @@
 #include "ArrayBuffer.h"
 #include "LockBuffer.h"
 #include "MultiBuffer.h"
-#include "LockExt.h"
+#include "Common.h"
+#include "Statistics.h"
+#include "Async/Mutex.h"
+#include "Stats/StatsCommand.h"
 
 struct FJob
 {
@@ -44,7 +47,7 @@ public:
 	JobType& Push(JobType&& InJob={}, int64* OutID=nullptr, TArrayView<int64> DependencyIDs={})
 	{
 		static_assert(TIsDerivedFrom<JobType, FJob>::Value);
-		FQScopeLock Lock(&NextLock);
+		UE::TScopeLock ScopeLock(NextLock);
 		auto& Jobs = JobsDB.GetNext();
 		FStackedJob& Stacked = Jobs.Emplace_GetRef(FStackedJob(new JobType(MoveTemp(InJob))));
 		InitJob(Stacked, DependencyIDs);
@@ -60,7 +63,7 @@ public:
 	// unlocked to reduce contention
 	bool IsDepleted() const
 	{
-		return DepletionCounter.load(std::memory_order_acquire) == JobsDB.GetCurrent().Num() && WorkingJobCount.load(std::memory_order_relaxed) == 0;
+		return DepletionCounter.load(std::memory_order_acquire) == JobsDB.GetCurrent().Num() && WorkingJobCount.load(std::memory_order_acquire) == 0;
 	}
 	
 	bool IsIdle() const
@@ -70,8 +73,15 @@ public:
 	
 	void ForceDeplete(bool bPreLocked=false)
 	{
-		FQScopeLock Lock(&CurLock, !bPreLocked);
+		if (!bPreLocked)
+		{
+			CurLock.Lock();
+		}
 		DepletionCounter.store(JobsDB.GetCurrent().Num(), std::memory_order_release);
+		if (!bPreLocked)
+		{
+			CurLock.Unlock();
+		}
 	}
 	
 	// if you pass a non-null pointer for ThisThreadWakeEvent, said thread wake event will be excluded from waking
@@ -151,14 +161,15 @@ protected:
 	std::atomic<int32> WorkingJobCount = 0;
 	std::atomic<int32> IdleWorkerCount = 0;
 	std::atomic<int64> WorkerWakeCounter = 0;
+	std::atomic<bool> bWorkerBlocked = false;
 	TLockBuffer<int64> WorkingJobIDs;
 	TLockBuffer<FWorkerThreadWakeEvent*> WorkerThreadWakeEvents;
 	
 	uint32 ControllerThreadID = 0;
 	FEvent* ControllerThreadWakeEvent = nullptr;
 	
-	mutable FQLock CurLock;
-	mutable FQLock NextLock;
+	mutable UE::FMutex CurLock;
+	mutable UE::FMutex NextLock;
 };
 
 class TRACESUNREALEXTENSION_API FJobStack : public FJobStackInterface
@@ -177,7 +188,7 @@ public:
 	
 	void ApplyResults();
 	
-	EExecuteResult ExcecuteJob(FWorkerThreadWakeEvent* ThisThreadWakeEvent, TFunction<bool(const FJob*)>&& Predicate=[](const FJob*) { return true; });
+	EExecuteResult ExecuteJob(FWorkerThreadWakeEvent* ThisThreadWakeEvent/*, TFunction<bool(const FJob*)>&& Predicate=[](const FJob*) { return true; }*/);
 	
 	void Flip();
 	

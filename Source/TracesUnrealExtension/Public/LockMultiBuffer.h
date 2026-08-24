@@ -1,10 +1,10 @@
 #pragma once
 
-#include "LockExt.h"
 #include "LockBuffer.h"
 #include "MathExt.h"
 
 // swap buffer (usually called double or triple buffering) with locking
+// assumes user is assigning one buffer per thread. a little unsafe in that way, but simple.
 template<typename T, int BufferCount>
 struct TLockMultiBuffer
 {
@@ -16,51 +16,60 @@ struct TLockMultiBuffer
 
     FORCEINLINE T Get(TArray<T>::SizeType i, size_t Buffer) const
     {
-        FQScopeLock<EQLockMode::Read> ScopedLock(&FlipLock);
-        return GetBuffer(Buffer).Get(i);
+    	FlipLock.ReadLock();
+        const T Value = GetBuffer(Buffer).Get(i);
+    	FlipLock.ReadUnlock();
+    	return Value;
     }
 
     FORCEINLINE void Push(const T& Value, size_t Buffer)
     {
-        FQScopeLock<EQLockMode::Read> ScopedLock(&FlipLock);
+    	FlipLock.ReadLock();
         GetBuffer(Buffer).Push(Value);
+    	FlipLock.ReadUnlock();
     }
 
     FORCEINLINE void Emplace(T&& Value, size_t Buffer)
     {
-        FQScopeLock<EQLockMode::Read> ScopedLock(&FlipLock);
+    	FlipLock.ReadLock();
         GetBuffer(Buffer).Emplace(std::move(Value));
+    	FlipLock.ReadUnlock();
     }
 
     FORCEINLINE void Empty(size_t Buffer)
     {
-        FQScopeLock<EQLockMode::Read> ScopedLock(&FlipLock);
+    	FlipLock.ReadLock();
         GetBuffer(Buffer).Empty();
+    	FlipLock.ReadUnlock();
     }
 
     FORCEINLINE TArray<T>::SizeType Num(size_t Buffer) const
     {
-        FQScopeLock<EQLockMode::Read> ScopedLock(&FlipLock);
-        return GetBuffer(Buffer).Num();
+    	FlipLock.ReadLock();
+        const size_t ArrayNum = GetBuffer(Buffer).Num();
+    	FlipLock.ReadUnlock();
+    	return ArrayNum;
     }
 
 	void Empty()
 	{
-        FQScopeLock<EQLockMode::Read> ScopedLock(&FlipLock);
+    	FlipLock.ReadLock();
 		for (size_t i = 0; i < BufferCount; i++)
 		{
 			Buffers[i].Empty();
 		}
+    	FlipLock.ReadUnlock();
 	}
 	
 	void Flip(bool bEmptyBeforeFlip=true)
 	{
-        FQScopeLock ScopedLock(&FlipLock);
+    	FlipLock.WriteLock();
 		if (bEmptyBeforeFlip)
 		{
             Buffers[CurrentBuffer].Empty();
 		}
 		CurrentBuffer = MathExt::IncrementWrap(CurrentBuffer, 0, BufferCount-1);
+    	FlipLock.WriteUnlock();
 	}
 	
 protected:
@@ -79,7 +88,7 @@ protected:
     
     // in the case of using this lock, a 'write' is flipping the buffers
     // and a 'read' is using any individual buffer
-    mutable FQLock FlipLock;
+    mutable FRWLock FlipLock;
     TStaticArray<TLockBuffer<T>, BufferCount> Buffers;
 	int32_t CurrentBuffer = 0;
 };

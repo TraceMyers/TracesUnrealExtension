@@ -113,7 +113,7 @@ FThreadJobber::~FThreadJobber()
 	JobStack.Reset();
 }
 
-void FThreadJobber::PrepareForWork() const
+void FThreadJobber::BeginWork() const
 {
 	if (bForceControlOnGameThread)
 	{
@@ -125,22 +125,12 @@ void FThreadJobber::PrepareForWork() const
 	
 	Stack->Flip();
 	Stack->Prepare();
-}
-
-void FThreadJobber::BeginWork() const
-{
-	if (bForceControlOnGameThread)
-	{
-		check(IsInGameThread())
-	}
-	
-	FJobStack* Stack = JobStack.Get();
-	check(Stack->CountWorkingThreads() == 0)
 	
 	if (Stack->IsDepleted())
 	{
 		return;
 	}
+	
 	Stack->WakeWorkerThreads();
 }
 
@@ -187,7 +177,7 @@ uint32 FThreadJobber::Run()
 	while (bRun.load(std::memory_order_acquire))
 	{
 		FJobStack* Stack = JobStack.Get();
-		auto Result = Stack->ExcecuteJob(&WakeEvent);
+		auto Result = Stack->ExecuteJob(&WakeEvent);
 		switch (Result)
 		{
 		case FJobStack::Success:

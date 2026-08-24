@@ -1,9 +1,13 @@
 #pragma once
 
-#include "LockExt.h"
+#include "Async/Mutex.h"
+#include "Containers/Array.h"
+#include "HAL/CriticalSection.h"
+#include "HAL/PlatformTLS.h"
 
-// a single buffer made for thread-safe usage, with the functionality to lock once and use 
-// extensively where needed.
+#include <atomic>
+
+// a single buffer made for thread-safe usage
 template<typename T>
 struct TLockBuffer
 {
@@ -15,8 +19,10 @@ struct TLockBuffer
 
 	FORCEINLINE T Get(TArray<T>::SizeType i) const
 	{
-        FQScopeLock<EQLockMode::Read> ScopedLock(&RwLock);
-		return Array[i];
+		RwLock.ReadLock();
+		const T Item = Array[i];
+		RwLock.ReadUnlock();
+		return Item;
 	}
 
 	FORCEINLINE TArray<T>& GetArrayLocked()
@@ -27,127 +33,163 @@ struct TLockBuffer
 	
 	FORCEINLINE void PushUnique(const T& Value)
 	{
-		FQScopeLock ScopeLock(&RwLock);
+		RwLock.WriteLock();
 		Array.AddUnique(Value);
+		RwLock.WriteUnlock();
+	}
+	
+	FORCEINLINE void Add(const T& Value)
+	{
+		RwLock.WriteLock();
+		Array.Add(Value);
+		RwLock.WriteUnlock();
 	}
 
 	FORCEINLINE void Push(const T& Value)
 	{
-        FQScopeLock ScopedLock(&RwLock);
+		RwLock.WriteLock();
 		Array.Push(Value);
+		RwLock.WriteUnlock();
 	}
 
 	FORCEINLINE void Emplace(T&& Value)
 	{
-        FQScopeLock ScopedLock(&RwLock);
+		RwLock.WriteLock();
 		Array.Emplace(std::move(Value));
+		RwLock.WriteUnlock();
 	}
 
 	FORCEINLINE void Empty(int32 Slack=0)
 	{
-        FQScopeLock ScopedLock(&RwLock);
+		RwLock.WriteLock();
 		Array.Empty(Slack);
+		RwLock.WriteUnlock();
 	}
 
 	FORCEINLINE TArray<T>::SizeType Num() const
 	{
-        FQScopeLock<EQLockMode::Read> ScopedLock(&RwLock);
-		return Array.Num();
+		RwLock.ReadLock();
+		size_t ArrayNum = Array.Num();
+		RwLock.ReadUnlock();
+		return ArrayNum;
 	}
 	
 	FORCEINLINE TArray<T>::SizeType Max() const
 	{
-        FQScopeLock<EQLockMode::Read> ScopedLock(&RwLock);
-		return Array.Max();
+		RwLock.ReadLock();
+		size_t ArrayMax = Array.Max();
+		RwLock.ReadUnlock();
+		return ArrayMax;
 	}
 	
 	FORCEINLINE void Remove(T& Value)
 	{
-        FQScopeLock ScopedLock(&RwLock);
+		RwLock.WriteLock();
 		Array.Remove(Value);
+		RwLock.WriteUnlock();
 	}
 	
 	FORCEINLINE void RemoveAt(size_t i)
 	{
-        FQScopeLock ScopedLock(&RwLock);
+		RwLock.WriteLock();
 		Array.RemoveAt(i, 1, EAllowShrinking::No);
+		RwLock.WriteUnlock();
 	}
 	
 	FORCEINLINE void RemoveSwap(T& Value)
 	{
-        FQScopeLock ScopedLock(&RwLock);
+		RwLock.WriteLock();
 		Array.RemoveSingleSwap(Value, EAllowShrinking::No);
+		RwLock.WriteUnlock();
 	}
 	
 	FORCEINLINE void RemoveAtSwap(size_t i)
 	{
-        FQScopeLock ScopedLock(&RwLock);
+		RwLock.WriteLock();
 		Array.RemoveAtSwap(i, 1, EAllowShrinking::No);
+		RwLock.WriteUnlock();
 	}
 	
 	FORCEINLINE void Shrink()
 	{
-		FQScopeLock ScopedLock(&RwLock);
+		RwLock.WriteLock();
 		Array.Shrink();
+		RwLock.WriteUnlock();
 	}
 	
 	FORCEINLINE size_t Find(T& Value)
 	{
-        FQScopeLock<EQLockMode::Read> ScopedLock(&RwLock);
-		return Array.Find(Value);
+		RwLock.ReadLock();
+		size_t Index = Array.Find(Value);
+		RwLock.ReadUnlock();
+		return Index;
+	}
+	
+	FORCEINLINE void Reserve(size_t Count)
+	{
+		RwLock.WriteLock();
+		Array.Reserve(Count);
+		RwLock.WriteUnlock();
 	}
 
 	FORCEINLINE void Lock()
 	{
-		FQWrite::Lock(&RwLock);
+		RwLock.WriteLock();
 		OwnedByThread.store(FPlatformTLS::GetCurrentThreadId(), std::memory_order_release);
 	}
 
 	FORCEINLINE void Unlock()
 	{
 		OwnedByThread.store(0, std::memory_order_release);
-		FQWrite::Unlock(&RwLock);
+		RwLock.WriteUnlock();
 	}
 	
 	void ForAllElements(TFunction<bool(T&)>&& Visitor)
 	{
-        FQScopeLock Lock(&RwLock);
+		RwLock.WriteLock();
 		for (T& Item : Array)
 		{
 			if (!Visitor(Item))
 			{
+				RwLock.WriteUnlock();
 				return;
 			}
 		}
+		RwLock.WriteUnlock();
 	}
 	
 	void ForAllElements(TFunction<bool(const T&)>&& Visitor) const
 	{
-        FQScopeLock Lock(&RwLock);
+		RwLock.WriteLock();
 		for (const T& Item : Array)
 		{
 			if (!Visitor(Item))
 			{
+				RwLock.WriteUnlock();
 				return;
 			}
 		}
+		RwLock.WriteUnlock();
 	}
 	
 	void WithAllElements(TFunction<void(TArray<T>&)>&& ArrayUser)
 	{
-        FQScopeLock Lock(&RwLock);
+		RwLock.WriteLock();
 		ArrayUser(Array);
+		RwLock.WriteUnlock();
 	}
 	
 	void WithAllElements(TFunction<void(const TArray<T>&)>&& ArrayUser) const
 	{
-        FQScopeLock Lock(&RwLock);
+		RwLock.WriteLock();
 		ArrayUser(Array);
+		RwLock.WriteUnlock();
 	}
 
 protected:
 
-	mutable FQLock RwLock;
+	static constexpr uint32 INVALID_THREAD_ID = 0;
+	mutable FRWLock RwLock;
 	std::atomic<uint32> OwnedByThread = INVALID_THREAD_ID;
 	TArray<T> Array;
 };

@@ -1,7 +1,9 @@
 #include "JobStack.h"
 #include "HAL/Event.h"
 #include "HAL/PlatformProcess.h"
+#include "HAL/PlatformTime.h"
 #include "HAL/PlatformTLS.h"
+#include "ProfilingDebugging/ScopedTimers.h"
 
 FJobStackInterface::FJobStackInterface()
 {
@@ -11,8 +13,8 @@ FJobStackInterface::FJobStackInterface()
 
 FJobStackInterface::~FJobStackInterface()
 {
-	FQScopeLock Lock1(&CurLock);
-	FQScopeLock Lock2(&NextLock);
+	UE::TScopeLock ScopeLock1(CurLock);
+	UE::TScopeLock ScopeLock2(NextLock);
 	
 	ForceDeplete(true);
 	EmptyCurrent(true);
@@ -37,7 +39,7 @@ int32 FJobStackInterface::CountWorkingThreads() const
 
 void FJobStackInterface::WakeWorkerThreads(const FWorkerThreadWakeEvent* ThisThreadWakeEvent)
 {
-	WorkerThreadWakeEvents.ForAllElements([&](FWorkerThreadWakeEvent* WakeEvent)
+	WorkerThreadWakeEvents.ForAllElements([ThisThreadWakeEvent](FWorkerThreadWakeEvent* WakeEvent)
 	{
 		// excluding this thread.
 		if (WakeEvent == ThisThreadWakeEvent)
@@ -54,7 +56,7 @@ void FJobStackInterface::WakeWorkerThreads(const FWorkerThreadWakeEvent* ThisThr
 				return true;
 			}
 		}
-	});	
+	});
 }
 
 void FJobStackInterface::ResetControllerThreadWakeSignal() const
@@ -75,7 +77,10 @@ bool FJobStackInterface::SleepControllerThread(uint32 WaitTimeMilliseconds) cons
 
 void FJobStackInterface::EmptyCurrent(bool bPreLocked)
 {
-	FQScopeLock Lock1(&CurLock, !bPreLocked);
+	if (!bPreLocked)
+	{
+		CurLock.Lock();
+	}
 	
 	auto& Jobs = JobsDB.GetCurrent();
 	check(DepletionCounter.load(std::memory_order_acquire) == Jobs.Num());
@@ -86,6 +91,11 @@ void FJobStackInterface::EmptyCurrent(bool bPreLocked)
 	}
 	
 	Jobs.Empty(Jobs.Max());
+	
+	if (!bPreLocked)
+	{
+		CurLock.Unlock();
+	}
 }
 
 void FJobStackInterface::EmptyThreadWakeEvents()
@@ -141,7 +151,7 @@ void FJobStackInterface::InitJob(FStackedJob& Stacked, TArrayView<int64> Depende
 
 void FJobStack::Prepare()
 {
-	FQScopeLock Lock(&CurLock);
+	UE::TScopeLock ScopeLock(CurLock);
 	auto& Jobs = JobsDB.GetCurrent();
 	for (auto& Stacked : Jobs)
 	{
@@ -152,7 +162,7 @@ void FJobStack::Prepare()
 
 void FJobStack::ApplyResults()
 {
-	FQScopeLock Lock(&CurLock);
+	UE::TScopeLock ScopeLock(CurLock);
 	auto& Jobs = JobsDB.GetCurrent();
 	for (auto& Stacked : Jobs)
 	{
@@ -161,8 +171,9 @@ void FJobStack::ApplyResults()
 	}	
 }
 
-FJobStack::EExecuteResult FJobStack::ExcecuteJob(FWorkerThreadWakeEvent* ThisThreadWakeEvent, TFunction<bool(const FJob*)>&& Predicate)
+FJobStack::EExecuteResult FJobStack::ExecuteJob(FWorkerThreadWakeEvent* ThisThreadWakeEvent/*, TFunction<bool(const FJob*)>&& Predicate*/)
 {
+	
 	FStackedJob* Stacked = nullptr;
 	int32 Depletion = 0;
 	bool bIsFinalJob = false;
@@ -170,37 +181,49 @@ FJobStack::EExecuteResult FJobStack::ExcecuteJob(FWorkerThreadWakeEvent* ThisThr
 	// clear stale wake events right before checking if there is work to do.
 	ThisThreadWakeEvent->LastKnownEpoch = ThisThreadWakeEvent->WakeCounter.load(std::memory_order_acquire).Epoch;
 	ThisThreadWakeEvent->Event->Reset();
-		
+
 	{
-		FQScopeLock Lock(&CurLock);
-			
+		UE::TScopeLock ScopeLock(CurLock);
+		
 		Depletion = DepletionCounter.load(std::memory_order_relaxed);
 		auto& Jobs = JobsDB.GetCurrent();
-			
+		
 		if (Depletion >= Jobs.Num())
 		{
 			return BufferEmpty;
 		}
-			
+		
 		Stacked = &Jobs[Depletion];
-			
+		
+		// predicate-based failure isn't fully cooked. there's no resolution path for it at the moment.
+		// if (!Predicate(Stacked->Job))
+		// {
+		// 	return PredicateFailed;
+		// }
+		
 		if (Stacked->DependencyIDs.Count > 0)
 		{
+			bool bDependencyAlive = false;
 			TArrayView<int64> Blockers = DependencyIDsDB.GetCurrent().BufGetView(Stacked->DependencyIDs);
-			for (int64 Blocker : Blockers)
+			WorkingJobIDs.ForAllElements([&Blockers, &bDependencyAlive, this](int64 ID)
 			{
-				if (WorkingJobIDs.Find(Blocker) != -1)
+				for (int64 Blocker : Blockers)
 				{
-					return DependencyAlive;
+					if (Blocker == ID)
+					{
+						bWorkerBlocked.store(true, std::memory_order_relaxed);
+						bDependencyAlive = true;
+						return false;
+					}
 				}
+				return true;
+			});
+			if (bDependencyAlive)
+			{
+				return DependencyAlive;
 			}
 		}
-			
-		if (!Predicate(Stacked->Job))
-		{
-			return PredicateFailed;
-		}
-			
+		
 		// make sure this id is tracked before unlocking, otherwise another thread might slip by
 		// without checking against this dependency
 		WorkingJobIDs.Push(Stacked->ID);
@@ -208,17 +231,23 @@ FJobStack::EExecuteResult FJobStack::ExcecuteJob(FWorkerThreadWakeEvent* ThisThr
 		Stacked->Status = FStackedJob::Working; 
 		// avoid false positive on depletion + no workers by setting this before unlock
 		WorkingJobCount.fetch_add(1, std::memory_order_release);
-		
 		DepletionCounter.fetch_add(1, std::memory_order_release);
 	}
 		
 	Stacked->Job->Execute();
-		
 	Stacked->Status = FStackedJob::WorkFinished;
-	WorkingJobIDs.RemoveSwap(Stacked->ID);
-	WorkingJobCount.fetch_sub(1);
-		
-	if (DepletionCounter.load(std::memory_order_acquire) < JobsDB.GetCurrent().Num())
+	
+	bool bAnyWorkersBlocked = false;
+	WorkingJobIDs.WithAllElements([Stacked, &bAnyWorkersBlocked, this](TArray<int64>& WorkingIDs)
+	{
+		WorkingIDs.RemoveSingleSwap(Stacked->ID, EAllowShrinking::No);
+		bAnyWorkersBlocked = bWorkerBlocked.load(std::memory_order_relaxed);
+		bWorkerBlocked.store(false, std::memory_order_relaxed);
+	});
+	
+	WorkingJobCount.fetch_sub(1, std::memory_order_release);
+	
+	if (bAnyWorkersBlocked && DepletionCounter.load(std::memory_order_acquire) < JobsDB.GetCurrent().Num())
 	{
 		// any threads that may be waiting on dependencies or for the situation to change so that a predicate
 		// will return true need to be awoken.
@@ -230,9 +259,9 @@ FJobStack::EExecuteResult FJobStack::ExcecuteJob(FWorkerThreadWakeEvent* ThisThr
 
 void FJobStack::Flip()
 {
-	FQScopeLock Lock1(&CurLock);
-	FQScopeLock Lock2(&NextLock);
-	
+	UE::TScopeLock ScopeLock1(CurLock);
+	UE::TScopeLock ScopeLock2(NextLock);
+
 	EmptyCurrent(true);
 	JobsDB.Flip();
 	DependencyIDsDB.Flip();
