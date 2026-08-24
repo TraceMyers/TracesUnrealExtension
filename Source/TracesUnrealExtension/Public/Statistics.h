@@ -10,7 +10,7 @@
 namespace StatsExt
 {
 	template <typename T>
-	T Sum(const TArray<T>& Array)
+	T Sum(TArrayView<T> Array)
 	{
 		T ItemSum = 0;		
 		for (const T Item : Array)
@@ -21,14 +21,14 @@ namespace StatsExt
 	}
 	
 	template <typename T>
-	double Mean(const TArray<T>& Array)
+	double Mean(TArrayView<T> Array)
 	{
 		check(Array.Num() > 0)
 		return Sum(Array) / (double)Array.Num();
 	}
 	
 	template <typename T>
-	T Min(const TArray<T>& Array)
+	T Min(TArrayView<T> Array)
 	{
 		check(Array.Num() > 0)
 		T MinItem = std::numeric_limits<T>::max();
@@ -40,7 +40,7 @@ namespace StatsExt
 	}
 		
 	template <typename T>
-	T Max(const TArray<T>& Array)
+	T Max(TArrayView<T> Array)
 	{
 		check(Array.Num() > 0)
 		T MaxItem = std::numeric_limits<T>::min();
@@ -51,8 +51,8 @@ namespace StatsExt
 		return MaxItem;
 	}
 
-	template <typename T>
-	double SortAndGetMedian(TArray<T>& Array)
+	template <typename T, typename AllocatorType=FDefaultAllocator>
+	double SortAndGetMedian(TArray<T, AllocatorType>& Array)
 	{
 		check(Array.Num() > 0)
 		if (Array.Num() == 1)
@@ -78,47 +78,50 @@ namespace StatsExt
 	}
 	
 	template <typename T>
-	double Median(const TArray<T>& Array)
+	double Median(TArrayView<T> Array)
 	{
 		TArray<T> ArrayCopy = Array;
 		return SortAndGetMedian(ArrayCopy);
 	}
 	
 	template <typename T>
-	T Mode(const TArray<T>& Array)
+	T Mode(TArrayView<T> Array)
 	{
 		check(Array.Num() > 0)
 		
-		TMap<T, int64> Counts;
+		TMap<T, int32> Counts;
+		Counts.Reserve(Array.Num()); // no reallocations
+		
+		const T* OutMode = &Array[0];
+		int32 ModeCount = 0;
+		
 		for (const T& Item : Array)
 		{
-			int64* Count = Counts.Find(Item);
-			if (Count)
+			int32& Count = Counts.FindOrAdd(Item, 0);
+			Count += 1;
+			
+			if (Count > ModeCount)
 			{
-				*Count += 1;
-			}
-			else
-			{
-				Counts.Add(Item, 1);
+				OutMode = &Item;
+				ModeCount = Count;
 			}
 		}
 		
-		Counts.ValueSort([](const int64& A, const int64& B){ return A > B; });
-		
-		TArray<T> SortedKeys;
-		Counts.GenerateKeyArray(SortedKeys);
-		
-		return SortedKeys[0];
+		return *OutMode;
 	}
 	
 	template<typename T>
-	double SumOfSquareError(const TArray<T>& Array)
+	double SumOfSquareError(TArrayView<T> Array, double* OutMean=nullptr)
 	{
 		double ArrayMean = Mean(Array);
 		double SSE = 0;
 		for (const T Item : Array)
 		{
 			SSE += FMath::Square(Item - ArrayMean);
+		}
+		if (OutMean)
+		{
+			*OutMean = ArrayMean;
 		}
 		return SSE;
 	}
@@ -127,7 +130,7 @@ namespace StatsExt
 	// rather than the population itself. if this array contains all data points, it's
 	// the population. if it's a subset, it's a population sample.
 	template<typename T>
-	double Variance(const TArray<T>& Array, bool bSampleVariance=true)
+	double Variance(TArrayView<T> Array, double* OutMean=nullptr, bool bSampleVariance=true)
 	{
 		if (Array.Num() == 0 || (bSampleVariance && Array.Num() == 1))
 		{
@@ -135,16 +138,16 @@ namespace StatsExt
 		}
 		
 		const double SampleSize = bSampleVariance ? Array.Num() - 1 : Array.Num();
-		return SumOfSquareError(Array) / SampleSize;
+		return SumOfSquareError(Array, OutMean) / SampleSize;
 	}
 	
 	// set 'bSampleVariance' to true if this is a sample representing a population
 	// rather than the population itself. if this array contains all data points, it's
 	// the population. if it's a subset, it's a population sample.
 	template<typename T>
-	double StandardDeviation(const TArray<T>& Array, bool bSampleVariance=true)
+	double StandardDeviation(TArrayView<T> Array, double* OutMean=nullptr, bool bSampleVariance=true)
 	{
-		const double ArrayVariance = Variance(Array, bSampleVariance);
+		const double ArrayVariance = Variance(Array, OutMean, bSampleVariance);
 		if (ArrayVariance == 0)
 		{
 			return 0;
