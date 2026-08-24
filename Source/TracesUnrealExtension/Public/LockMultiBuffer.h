@@ -4,7 +4,6 @@
 #include "MathExt.h"
 
 // swap buffer (usually called double or triple buffering) with locking
-// assumes user is assigning one buffer per thread. a little unsafe in that way, but simple.
 template<typename T, int BufferCount>
 struct TLockMultiBuffer
 {
